@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RotaTrans - Logística Inteligente de Transportes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div id="app"></div>
+
+    <script>
+        // Banco de Dados COM DADOS DE TESTE
+        const db = {
+            motoristas: JSON.parse(localStorage.getItem('motoristas') || JSON.stringify([
+                {
+                    id: 1000001,
+                    nome: "Motorista Teste",
+                    email: "motorista.teste@sistema.com",
+                    cpf: "14469034860",
+                    tel: "(11) 99999-8888",
+                    end: "Rua Teste, 100",
+                    veiculo: "Toco",
+                    ano: "2023",
+                    modelo: "Volvo FH",
+                    cor: "Branco",
+                    antt: "123456789",
+                    placa: "TST-0001",
+                    data: "28/03/2026"
+                }
+            ])),
+            embarcadores: JSON.parse(localStorage.getItem('embarcadores') || JSON.stringify([
+                {
+                    id: 2000001,
+                    nome: "Transportadora Teste",
+                    cnpj: "12.345.678/0001-90",
+                    end: "Av Principal, 500",
+                    tel: "(11) 3333-3333",
+                    responsavel_nome: "Gerente Teste",
+                    responsavel_email: "gerente.teste@sistema.com",
+                    responsavel_cpf: "14469034860",
+                    acessos_adicionais: [
+                        {
+                            email: "acesso.teste@sistema.com",
+                            senha: "14469034860",
+                            data: "28/03/2026"
+                        }
+                    ],
+                    bases: [
+                        {
+                            id: 3000001,
+                            nome: "Base Barueri",
+                            endereco: "Rua das Flores, 100 - Barueri, SP",
+                            data: "28/03/2026"
+                        },
+                        {
+                            id: 3000002,
+                            nome: "Base Zona Leste",
+                            endereco: "Av Paulista, 1000 - Zona Leste, SP",
+                            data: "28/03/2026"
+                        }
+                    ],
+                    data: "28/03/2026"
+                }
+            ])),
+            fretes: JSON.parse(localStorage.getItem('fretes') || '[]'),
+            lances: JSON.parse(localStorage.getItem('lances') || '[]'),
+            admins: JSON.parse(localStorage.getItem('admins') || '[{"email":"jof31@outlook.com.br","cpf":"14469034860","acessos_adicionais":[]}]'),
+            
+            save() {
+                localStorage.setItem('motoristas', JSON.stringify(this.motoristas));
+                localStorage.setItem('embarcadores', JSON.stringify(this.embarcadores));
+                localStorage.setItem('fretes', JSON.stringify(this.fretes));
+                localStorage.setItem('lances', JSON.stringify(this.lances));
+                localStorage.setItem('admins', JSON.stringify(this.admins));
+            }
+        };
+
+        // APP
+        const app = {
+            tela: 'inicial',
+            user: null,
+            tipo: null,
+            empresa_id: null,
+            novoFrete: {
+                tipo: '',
+                veiculo: '',
+                titulo: '',
+                descricao: '',
+                info: '',
+                valor_ref: '',
+                data_limite: '',
+                base_id: ''
+            },
+            novaBase: {
+                nome: '',
+                endereco: ''
+            },
+            novoAcesso: {
+                email: '',
+                senha: '',
+                confirmaSenha: ''
+            },
+
+            render() {
+                const html = this[`tela_${this.tela}`]();
+                document.getElementById('app').innerHTML = html;
+            },
+
+            tela_inicial() {
+                return `
+                    <div class="min-h-screen bg-gradient-to-br from-blue-500 to-indigo-700 p-4">
+                        <div class="max-w-6xl mx-auto">
+                            <div class="text-center mb-12">
+                                <h1 class="text-5xl font-bold text-white mb-2">🚚 RotaTrans</h1>
+                                <p class="text-xl text-blue-100">Logística Inteligente que Conecta Motoristas e Embarcadores</p>
+                            </div>
+
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                <!-- MOTORISTAS -->
+                                <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+                                    <div class="bg-green-600 p-8 text-white">
+                                        <h2 class="text-3xl font-bold">🚗 Motoristas</h2>
+                                    </div>
+                                    <div class="p-8 space-y-4">
+                                        <button onclick="app.tela='cad_mot'; app.render()" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">
+                                            ➕ Cadastro
+                                        </button>
+                                        <button onclick="app.tela='login_mot'; app.render()" class="w-full border-2 border-green-600 text-green-600 py-3 rounded-lg font-bold hover:bg-green-50">
+                                            🔓 Login
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- EMBARCADORES -->
+                                <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+                                    <div class="bg-orange-600 p-8 text-white">
+                                        <h2 class="text-3xl font-bold">📦 Embarcadores</h2>
+                                    </div>
+                                    <div class="p-8 space-y-4">
+                                        <button onclick="app.tela='cad_emb'; app.render()" class="w-full bg-orange-600 text-white py-3 rounded-lg font-bold hover:bg-orange-700">
+                                            ➕ Cadastro
+                                        </button>
+                                        <button onclick="app.tela='login_emb'; app.render()" class="w-full border-2 border-orange-600 text-orange-600 py-3 rounded-lg font-bold hover:bg-orange-50">
+                                            🔓 Login
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- ADMIN -->
+                                <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+                                    <div class="bg-purple-600 p-8 text-white">
+                                        <h2 class="text-3xl font-bold">⚙️ Administrador</h2>
+                                    </div>
+                                    <div class="p-8 space-y-4">
+                                        <button onclick="app.tela='login_admin'; app.render()" class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700">
+                                            🔐 Login Admin
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-12 bg-white rounded-lg shadow-lg p-8 text-center">
+                                <h3 class="text-2xl font-bold text-blue-600 mb-4">📋 Dados de Teste</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+                                    <div class="bg-green-50 p-4 rounded-lg">
+                                        <p class="font-bold text-green-700">🚗 Motorista</p>
+                                        <p class="text-sm">Email: motorista.teste@sistema.com</p>
+                                        <p class="text-sm">Senha: 14469034860</p>
+                                    </div>
+                                    <div class="bg-orange-50 p-4 rounded-lg">
+                                        <p class="font-bold text-orange-700">📦 Embarcador</p>
+                                        <p class="text-sm">Email: gerente.teste@sistema.com</p>
+                                        <p class="text-sm">Senha: 14469034860</p>
+                                    </div>
+                                    <div class="bg-purple-50 p-4 rounded-lg">
+                                        <p class="font-bold text-purple-700">⚙️ Admin</p>
+                                        <p class="text-sm">Email: jof31@outlook.com.br</p>
+                                        <p class="text-sm">Senha: 14469034860</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            // ===== MOTORISTAS =====
+            tela_cad_mot() {
+                return `
+                    <div class="min-h-screen bg-blue-50 p-4">
+                        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
+                            <button onclick="app.tela='inicial'; app.render()" class="mb-6 text-blue-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-2">🚗 Cadastro Motorista</h1>
+                            <p class="text-gray-600 mb-6">Login será feito com Email e CPF</p>
+
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block mb-2 font-semibold">Nome Completo</label>
+                                    <input type="text" id="mot_nome" placeholder="Nome Completo" class="w-full px-4 py-3 border rounded-lg">
+                                </div>
+
+                                <div>
+                                    <label class="block mb-2 font-semibold">📧 Email (para Login)</label>
+                                    <input type="email" id="mot_email" placeholder="seu@email.com" class="w-full px-4 py-3 border rounded-lg">
+                                </div>
+
+                                <div>
+                                    <label class="block mb-2 font-semibold">🔐 CPF (será sua Senha)</label>
+                                    <input type="text" id="mot_cpf" placeholder="000.000.000-00" class="w-full px-4 py-3 border rounded-lg">
+                                </div>
+
+                                <input type="tel" id="mot_tel" placeholder="Telefone" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="text" id="mot_end" placeholder="Endereço" class="w-full px-4 py-3 border rounded-lg">
+                                
+                                <select id="mot_veiculo" class="w-full px-4 py-3 border rounded-lg">
+                                    <option value="">Selecione Veículo</option>
+                                    <option value="Fiorino">Fiorino</option>
+                                    <option value="3/4">3/4</option>
+                                    <option value="Van">Van</option>
+                                    <option value="Toco">Toco</option>
+                                    <option value="Truck">Truck</option>
+                                </select>
+
+                                <input type="text" id="mot_ano" placeholder="Ano" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="text" id="mot_modelo" placeholder="Modelo" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="text" id="mot_cor" placeholder="Cor" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="text" id="mot_antt" placeholder="ANTT" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="text" id="mot_placa" placeholder="Placa" class="w-full px-4 py-3 border rounded-lg">
+
+                                <button onclick="app.salvarMotorista()" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">
+                                    ✅ Cadastrar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            salvarMotorista() {
+                const nome = document.getElementById('mot_nome').value;
+                const email = document.getElementById('mot_email').value;
+                const cpf = document.getElementById('mot_cpf').value;
+                
+                if (!nome || !email || !cpf) {
+                    alert('⚠️ Preencha todos os campos obrigatórios!');
+                    return;
+                }
+
+                const motorista = {
+                    id: Math.floor(Math.random() * 1000000) + 1000001,
+                    nome: document.getElementById('mot_nome').value,
+                    email: document.getElementById('mot_email').value,
+                    cpf: document.getElementById('mot_cpf').value,
+                    tel: document.getElementById('mot_tel').value,
+                    end: document.getElementById('mot_end').value,
+                    veiculo: document.getElementById('mot_veiculo').value,
+                    ano: document.getElementById('mot_ano').value,
+                    modelo: document.getElementById('mot_modelo').value,
+                    cor: document.getElementById('mot_cor').value,
+                    antt: document.getElementById('mot_antt').value,
+                    placa: document.getElementById('mot_placa').value,
+                    data: new Date().toLocaleDateString('pt-BR')
+                };
+
+                db.motoristas.push(motorista);
+                db.save();
+                alert('✅ Motorista cadastrado com sucesso!');
+                this.tela = 'inicial';
+                this.render();
+            },
+
+            tela_login_mot() {
+                return `
+                    <div class="min-h-screen bg-blue-50 p-4 flex items-center justify-center">
+                        <div class="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+                            <button onclick="app.tela='inicial'; app.render()" class="mb-6 text-blue-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-6 text-center">🚗 Login Motorista</h1>
+
+                            <input type="email" id="login_mot_email" placeholder="Email" class="w-full px-4 py-3 border rounded-lg mb-4">
+                            <input type="text" id="login_mot_cpf" placeholder="CPF (Senha)" class="w-full px-4 py-3 border rounded-lg mb-6">
+
+                            <button onclick="app.loginMotorista()" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">
+                                🔓 Entrar
+                            </button>
+                        </div>
+                    </div>
+                `;
+            },
+
+            loginMotorista() {
+                const email = document.getElementById('login_mot_email').value;
+                const cpf = document.getElementById('login_mot_cpf').value;
+
+                const motorista = db.motoristas.find(m => m.email === email && m.cpf === cpf);
+                if (!motorista) {
+                    alert('⚠️ Email ou CPF incorretos!');
+                    return;
+                }
+
+                this.user = motorista;
+                this.tipo = 'motorista';
+                this.tela = 'dash_mot';
+                this.render();
+            },
+
+            tela_dash_mot() {
+                const fretes = db.fretes.sort((a, b) => new Date(b.data_cad) - new Date(a.data_cad));
+                
+                return `
+                    <div class="min-h-screen bg-green-50 p-4">
+                        <div class="max-w-6xl mx-auto">
+                            <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <h1 class="text-3xl font-bold">🚗 Dashboard Motorista</h1>
+                                        <p class="text-gray-600 mt-2">Bem-vindo, <strong>${this.user.nome}</strong>!</p>
+                                    </div>
+                                    <button onclick="app.logout()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">
+                                        🚪 Sair
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                <button onclick="app.tela='meus_lances'; app.render()" class="bg-blue-600 text-white p-6 rounded-lg font-bold hover:bg-blue-700">
+                                    📊 Meus Lances
+                                </button>
+                            </div>
+
+                            <div class="bg-white rounded-lg shadow-lg p-8">
+                                <h2 class="text-2xl font-bold mb-6">📦 Fretes Disponíveis</h2>
+                                ${fretes.length === 0 ? '<p class="text-gray-600">Nenhum frete disponível no momento.</p>' : `
+                                    <div class="space-y-4">
+                                        ${fretes.map(f => `
+                                            <div class="border rounded-lg p-6 hover:shadow-lg transition">
+                                                <div class="flex justify-between items-start mb-3">
+                                                    <h3 class="text-xl font-bold text-blue-600">${f.titulo}</h3>
+                                                    <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-semibold">R$ ${parseFloat(f.valor_ref).toFixed(2)}</span>
+                                                </div>
+                                                <p class="text-gray-700 mb-2">📍 Base: <strong>${f.base_nome || 'Não especificada'}</strong></p>
+                                                <p class="text-gray-700 mb-2">Tipo: ${f.tipo === 'pontoaponto' ? '🔵 Ponto a Ponto' : '🟠 Porta a Porta'}</p>
+                                                <p class="text-gray-700 mb-2">Veículo: ${f.veiculo}</p>
+                                                <p class="text-gray-600 mb-4">${f.descricao}</p>
+                                                <button onclick="app.fazerLance(${f.id})" class="w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700">
+                                                    💰 Fazer Lance
+                                                </button>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            fazerLance(frete_id) {
+                const valor = prompt('💰 Qual é seu valor?');
+                if (!valor) return;
+
+                const frete = db.fretes.find(f => f.id === frete_id);
+                if (!frete) return;
+
+                if (parseFloat(valor) >= parseFloat(frete.valor_ref)) {
+                    alert('⚠️ Seu valor não pode ser maior ou igual ao valor de referência!');
+                    return;
+                }
+
+                const lance = {
+                    id: Math.floor(Math.random() * 1000000),
+                    frete_id: frete_id,
+                    mot_email: this.user.email,
+                    mot_nome: this.user.nome,
+                    valor: parseFloat(valor),
+                    data: new Date().toLocaleString('pt-BR')
+                };
+
+                db.lances.push(lance);
+                db.save();
+                alert('✅ Lance realizado com sucesso!');
+                this.render();
+            },
+
+            tela_meus_lances() {
+                const meus_lances = db.lances.filter(l => l.mot_email === this.user.email);
+                
+                return `
+                    <div class="min-h-screen bg-blue-50 p-4">
+                        <div class="max-w-4xl mx-auto">
+                            <button onclick="app.tela='dash_mot'; app.render()" class="mb-6 text-blue-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-6">📊 Meus Lances</h1>
+
+                            ${meus_lances.length === 0 ? '<p class="text-gray-600">Você ainda não fez nenhum lance.</p>' : `
+                                <div class="space-y-4">
+                                    ${meus_lances.map(l => {
+                                        const frete = db.fretes.find(f => f.id === l.frete_id);
+                                        const lances_frete = db.lances.filter(lc => lc.frete_id === l.frete_id).sort((a, b) => a.valor - b.valor);
+                                        const eh_melhor = lances_frete.length > 0 && lances_frete[0].valor === l.valor;
+                                        
+                                        return `
+                                            <div class="bg-white rounded-lg shadow-lg p-6">
+                                                <div class="flex justify-between items-start mb-3">
+                                                    <div>
+                                                        <h3 class="text-xl font-bold">${frete ? frete.titulo : 'Frete removido'}</h3>
+                                                        <p class="text-gray-600 text-sm mt-1">📅 ${l.data}</p>
+                                                    </div>
+                                                    <div class="text-right">
+                                                        <p class="text-2xl font-bold text-blue-600">R$ ${l.valor.toFixed(2)}</p>
+                                                        ${eh_melhor ? '<p class="text-green-600 font-bold">🏆 Melhor Lance!</p>' : ''}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `;
+            },
+
+            // ===== EMBARCADORES =====
+            tela_cad_emb() {
+                return `
+                    <div class="min-h-screen bg-orange-50 p-4">
+                        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
+                            <button onclick="app.tela='inicial'; app.render()" class="mb-6 text-orange-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-2">📦 Cadastro Embarcador</h1>
+
+                            <div class="space-y-4">
+                                <input type="text" id="emb_nome" placeholder="Nome da Empresa" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="text" id="emb_cnpj" placeholder="CNPJ" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="text" id="emb_end" placeholder="Endereço" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="tel" id="emb_tel" placeholder="Telefone" class="w-full px-4 py-3 border rounded-lg">
+                                
+                                <div class="border-t pt-6 mt-6">
+                                    <h3 class="text-xl font-bold mb-4">👤 Responsável</h3>
+                                    <input type="text" id="emb_resp_nome" placeholder="Nome Responsável" class="w-full px-4 py-3 border rounded-lg mb-4">
+                                    <input type="email" id="emb_resp_email" placeholder="Email (para Login)" class="w-full px-4 py-3 border rounded-lg mb-4">
+                                    <input type="text" id="emb_resp_cpf" placeholder="CPF (será sua Senha)" class="w-full px-4 py-3 border rounded-lg">
+                                </div>
+
+                                <button onclick="app.salvarEmbarcador()" class="w-full bg-orange-600 text-white py-3 rounded-lg font-bold hover:bg-orange-700">
+                                    ✅ Cadastrar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            salvarEmbarcador() {
+                const nome = document.getElementById('emb_nome').value;
+                const email = document.getElementById('emb_resp_email').value;
+                
+                if (!nome || !email) {
+                    alert('⚠️ Preencha os campos obrigatórios!');
+                    return;
+                }
+
+                const embarcador = {
+                    id: Math.floor(Math.random() * 1000000) + 2000001,
+                    nome: document.getElementById('emb_nome').value,
+                    cnpj: document.getElementById('emb_cnpj').value,
+                    end: document.getElementById('emb_end').value,
+                    tel: document.getElementById('emb_tel').value,
+                    responsavel_nome: document.getElementById('emb_resp_nome').value,
+                    responsavel_email: document.getElementById('emb_resp_email').value,
+                    responsavel_cpf: document.getElementById('emb_resp_cpf').value,
+                    acessos_adicionais: [],
+                    bases: [],
+                    data: new Date().toLocaleDateString('pt-BR')
+                };
+
+                db.embarcadores.push(embarcador);
+                db.save();
+                alert('✅ Embarcador cadastrado com sucesso!');
+                this.tela = 'inicial';
+                this.render();
+            },
+
+            tela_login_emb() {
+                return `
+                    <div class="min-h-screen bg-orange-50 p-4 flex items-center justify-center">
+                        <div class="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+                            <button onclick="app.tela='inicial'; app.render()" class="mb-6 text-orange-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-6 text-center">📦 Login Embarcador</h1>
+
+                            <input type="email" id="login_emb_email" placeholder="Email" class="w-full px-4 py-3 border rounded-lg mb-4">
+                            <input type="text" id="login_emb_senha" placeholder="Senha" class="w-full px-4 py-3 border rounded-lg mb-6">
+
+                            <button onclick="app.loginEmbarcador()" class="w-full bg-orange-600 text-white py-3 rounded-lg font-bold hover:bg-orange-700">
+                                🔓 Entrar
+                            </button>
+                        </div>
+                    </div>
+                `;
+            },
+
+            loginEmbarcador() {
+                const email = document.getElementById('login_emb_email').value;
+                const senha = document.getElementById('login_emb_senha').value;
+
+                let embarcador = db.embarcadores.find(e => e.responsavel_email === email && e.responsavel_cpf === senha);
+                
+                if (!embarcador) {
+                    for (let e of db.embarcadores) {
+                        const acesso = e.acessos_adicionais.find(a => a.email === email && a.senha === senha);
+                        if (acesso) {
+                            embarcador = e;
+                            break;
+                        }
+                    }
+                }
+
+                if (!embarcador) {
+                    alert('⚠️ Email ou senha incorretos!');
+                    return;
+                }
+
+                this.user = embarcador;
+                this.tipo = 'embarcador';
+                this.empresa_id = embarcador.id;
+                this.tela = 'dash_emb';
+                this.render();
+            },
+
+            tela_dash_emb() {
+                return `
+                    <div class="min-h-screen bg-orange-50 p-4">
+                        <div class="max-w-6xl mx-auto">
+                            <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <h1 class="text-3xl font-bold">📦 Dashboard Embarcador</h1>
+                                        <p class="text-gray-600 mt-2"><strong>${this.user.nome}</strong></p>
+                                    </div>
+                                    <button onclick="app.logout()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">
+                                        🚪 Sair
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                                <button onclick="app.tela='novo_frete'; app.render()" class="bg-green-600 text-white p-6 rounded-lg font-bold hover:bg-green-700">
+                                    ➕ Novo Frete
+                                </button>
+                                <button onclick="app.tela='gerenciar_bases'; app.render()" class="bg-blue-600 text-white p-6 rounded-lg font-bold hover:bg-blue-700">
+                                    📍 Bases
+                                </button>
+                                <button onclick="app.tela='gerenciar_acessos'; app.render()" class="bg-purple-600 text-white p-6 rounded-lg font-bold hover:bg-purple-700">
+                                    🔑 Acessos
+                                </button>
+                            </div>
+
+                            <div class="bg-white rounded-lg shadow-lg p-8">
+                                <h2 class="text-2xl font-bold mb-6">📦 Meus Fretes</h2>
+                                ${db.fretes.filter(f => f.emb_id === this.empresa_id).length === 0 ? '<p class="text-gray-600">Você ainda não criou nenhum frete.</p>' : `
+                                    <div class="space-y-4">
+                                        ${db.fretes.filter(f => f.emb_id === this.empresa_id).map(f => `
+                                            <div class="border rounded-lg p-6 hover:shadow-lg transition">
+                                                <div class="flex justify-between items-start mb-3">
+                                                    <h3 class="text-xl font-bold text-blue-600">${f.titulo}</h3>
+                                                    <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full">R$ ${parseFloat(f.valor_ref).toFixed(2)}</span>
+                                                </div>
+                                                <p class="text-gray-700 mb-2">📍 Base: <strong>${f.base_nome}</strong></p>
+                                                <p class="text-gray-700">Lances: ${db.lances.filter(l => l.frete_id === f.id).length}</p>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            tela_gerenciar_bases() {
+                return `
+                    <div class="min-h-screen bg-blue-50 p-4">
+                        <div class="max-w-4xl mx-auto">
+                            <button onclick="app.tela='dash_emb'; app.render()" class="mb-6 text-blue-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-6">📍 Gerenciar Bases de Carregamento</h1>
+
+                            <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
+                                <h2 class="text-xl font-bold mb-4">➕ Adicionar Nova Base</h2>
+                                <div class="space-y-4">
+                                    <input type="text" id="base_nome" placeholder="Nome da Base" class="w-full px-4 py-3 border rounded-lg">
+                                    <input type="text" id="base_endereco" placeholder="Endereço" class="w-full px-4 py-3 border rounded-lg">
+                                    <button onclick="app.salvarBase()" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">
+                                        ✅ Adicionar
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-lg shadow-lg p-8">
+                                <h2 class="text-xl font-bold mb-4">Minhas Bases</h2>
+                                ${this.user.bases.length === 0 ? '<p class="text-gray-600">Nenhuma base cadastrada.</p>' : `
+                                    <div class="space-y-3">
+                                        ${this.user.bases.map((b, idx) => `
+                                            <div class="border rounded-lg p-4 flex justify-between items-start">
+                                                <div>
+                                                    <p class="font-bold">${b.nome}</p>
+                                                    <p class="text-gray-600 text-sm">${b.endereco}</p>
+                                                </div>
+                                                <button onclick="app.deletarBase(${idx})" class="bg-red-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-700">
+                                                    🗑️ Deletar
+                                                </button>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            salvarBase() {
+                const nome = document.getElementById('base_nome').value;
+                const endereco = document.getElementById('base_endereco').value;
+
+                if (!nome || !endereco) {
+                    alert('⚠️ Preencha todos os campos!');
+                    return;
+                }
+
+                const base = {
+                    id: Math.floor(Math.random() * 1000000) + 3000001,
+                    nome: nome,
+                    endereco: endereco,
+                    data: new Date().toLocaleDateString('pt-BR')
+                };
+
+                this.user.bases.push(base);
+                db.save();
+                alert('✅ Base adicionada com sucesso!');
+                this.render();
+            },
+
+            deletarBase(idx) {
+                if (confirm('Tem certeza? Se há fretes com essa base, não poderá deletar.')) {
+                    const base_id = this.user.bases[idx].id;
+                    if (db.fretes.some(f => f.base_id === base_id)) {
+                        alert('⚠️ Não é possível deletar bases com fretes ativos!');
+                        return;
+                    }
+                    this.user.bases.splice(idx, 1);
+                    db.save();
+                    this.render();
+                }
+            },
+
+            tela_gerenciar_acessos() {
+                return `
+                    <div class="min-h-screen bg-purple-50 p-4">
+                        <div class="max-w-4xl mx-auto">
+                            <button onclick="app.tela='dash_emb'; app.render()" class="mb-6 text-purple-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-6">🔑 Gerenciar Acessos</h1>
+
+                            <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
+                                <h2 class="text-xl font-bold mb-4">➕ Novo Acesso</h2>
+                                <div class="space-y-4">
+                                    <input type="email" id="acesso_email" placeholder="Email" class="w-full px-4 py-3 border rounded-lg">
+                                    <input type="text" id="acesso_senha" placeholder="Senha" class="w-full px-4 py-3 border rounded-lg">
+                                    <button onclick="app.salvarAcesso()" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">
+                                        ✅ Adicionar Acesso
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-lg shadow-lg p-8">
+                                <h2 class="text-xl font-bold mb-4">Acessos Adicionais</h2>
+                                ${this.user.acessos_adicionais.length === 0 ? '<p class="text-gray-600">Nenhum acesso adicional.</p>' : `
+                                    <div class="space-y-3">
+                                        ${this.user.acessos_adicionais.map((a, idx) => `
+                                            <div class="border rounded-lg p-4 flex justify-between items-start">
+                                                <div>
+                                                    <p class="font-bold">${a.email}</p>
+                                                    <p class="text-gray-600 text-sm">Adicionado em ${a.data}</p>
+                                                </div>
+                                                <button onclick="app.deletarAcesso(${idx})" class="bg-red-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-700">
+                                                    🗑️ Deletar
+                                                </button>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            salvarAcesso() {
+                const email = document.getElementById('acesso_email').value;
+                const senha = document.getElementById('acesso_senha').value;
+
+                if (!email || !senha) {
+                    alert('⚠️ Preencha todos os campos!');
+                    return;
+                }
+
+                const acesso = {
+                    email: email,
+                    senha: senha,
+                    data: new Date().toLocaleDateString('pt-BR')
+                };
+
+                this.user.acessos_adicionais.push(acesso);
+                db.save();
+                alert('✅ Acesso adicionado com sucesso!');
+                this.render();
+            },
+
+            deletarAcesso(idx) {
+                this.user.acessos_adicionais.splice(idx, 1);
+                db.save();
+                this.render();
+            },
+
+            tela_novo_frete() {
+                return `
+                    <div class="min-h-screen bg-green-50 p-4">
+                        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
+                            <button onclick="app.tela='dash_emb'; app.render()" class="mb-6 text-green-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-6">➕ Novo Frete</h1>
+
+                            <div class="space-y-4">
+                                <select id="frete_tipo" class="w-full px-4 py-3 border rounded-lg">
+                                    <option value="">Selecione Tipo</option>
+                                    <option value="pontoaponto">🔵 Ponto a Ponto</option>
+                                    <option value="portaporta">🟠 Porta a Porta</option>
+                                </select>
+
+                                <select id="frete_veiculo" class="w-full px-4 py-3 border rounded-lg">
+                                    <option value="">Selecione Veículo</option>
+                                    <option value="Fiorino">Fiorino</option>
+                                    <option value="3/4">3/4</option>
+                                    <option value="Van">Van</option>
+                                    <option value="Toco">Toco</option>
+                                    <option value="Truck">Truck</option>
+                                </select>
+
+                                <select id="frete_base" class="w-full px-4 py-3 border rounded-lg">
+                                    <option value="">Selecione Base de Carregamento</option>
+                                    ${this.user.bases.map(b => `<option value="${b.id}">${b.nome}</option>`).join('')}
+                                </select>
+
+                                <input type="text" id="frete_titulo" placeholder="Título do Frete" class="w-full px-4 py-3 border rounded-lg">
+                                <textarea id="frete_descricao" placeholder="Descrição" rows="4" class="w-full px-4 py-3 border rounded-lg resize-none"></textarea>
+                                <textarea id="frete_info" placeholder="Informações Adicionais" rows="3" class="w-full px-4 py-3 border rounded-lg resize-none"></textarea>
+                                <input type="number" id="frete_valor" placeholder="Valor de Referência" step="0.01" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="datetime-local" id="frete_data_limite" class="w-full px-4 py-3 border rounded-lg">
+
+                                <button onclick="app.salvarFrete()" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">
+                                    ✅ Criar Frete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            salvarFrete() {
+                const tipo = document.getElementById('frete_tipo').value;
+                const veiculo = document.getElementById('frete_veiculo').value;
+                const base_id = document.getElementById('frete_base').value;
+                const titulo = document.getElementById('frete_titulo').value;
+                const valor = document.getElementById('frete_valor').value;
+
+                if (!tipo || !veiculo || !base_id || !titulo || !valor) {
+                    alert('⚠️ Preencha todos os campos obrigatórios!');
+                    return;
+                }
+
+                const base = this.user.bases.find(b => b.id == base_id);
+
+                const frete = {
+                    id: Math.floor(Math.random() * 1000000),
+                    tipo: tipo,
+                    veiculo: veiculo,
+                    titulo: titulo,
+                    descricao: document.getElementById('frete_descricao').value,
+                    info: document.getElementById('frete_info').value,
+                    valor_ref: parseFloat(valor),
+                    data_limite: document.getElementById('frete_data_limite').value,
+                    base_id: parseInt(base_id),
+                    base_nome: base.nome,
+                    emb_id: this.empresa_id,
+                    emb_nome: this.user.nome,
+                    data_cad: new Date().toLocaleString('pt-BR')
+                };
+
+                db.fretes.push(frete);
+                db.save();
+                alert('✅ Frete criado com sucesso!');
+                this.tela = 'dash_emb';
+                this.render();
+            },
+
+            // ===== ADMIN =====
+            tela_login_admin() {
+                return `
+                    <div class="min-h-screen bg-purple-50 p-4 flex items-center justify-center">
+                        <div class="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+                            <button onclick="app.tela='inicial'; app.render()" class="mb-6 text-purple-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-6 text-center">⚙️ Login Admin</h1>
+
+                            <input type="email" id="login_admin_email" placeholder="Email" class="w-full px-4 py-3 border rounded-lg mb-4">
+                            <input type="text" id="login_admin_cpf" placeholder="CPF (Senha)" class="w-full px-4 py-3 border rounded-lg mb-6">
+
+                            <button onclick="app.loginAdmin()" class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700">
+                                🔐 Entrar
+                            </button>
+                        </div>
+                    </div>
+                `;
+            },
+
+            loginAdmin() {
+                const email = document.getElementById('login_admin_email').value;
+                const cpf = document.getElementById('login_admin_cpf').value;
+
+                const admin = db.admins.find(a => a.email === email && a.cpf === cpf);
+                if (!admin) {
+                    const acesso = db.admins.find(a => a.acessos_adicionais.some(ac => ac.email === email && ac.senha === cpf));
+                    if (!acesso) {
+                        alert('⚠️ Email ou CPF incorretos!');
+                        return;
+                    }
+                }
+
+                this.tipo = 'admin';
+                this.tela = 'dash_admin';
+                this.render();
+            },
+
+            tela_dash_admin() {
+                return `
+                    <div class="min-h-screen bg-purple-50 p-4">
+                        <div class="max-w-6xl mx-auto">
+                            <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
+                                <div class="flex justify-between items-center">
+                                    <h1 class="text-3xl font-bold">⚙️ Painel Administrativo</h1>
+                                    <button onclick="app.logout()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">
+                                        🚪 Sair
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                <button onclick="app.tela='admin_motoristas'; app.render()" class="bg-green-600 text-white p-6 rounded-lg font-bold hover:bg-green-700 text-left">
+                                    <p class="text-2xl mb-2">🚗 Motoristas</p>
+                                    <p class="text-sm opacity-90">${db.motoristas.length} cadastrados</p>
+                                </button>
+                                <button onclick="app.tela='admin_embarcadores'; app.render()" class="bg-orange-600 text-white p-6 rounded-lg font-bold hover:bg-orange-700 text-left">
+                                    <p class="text-2xl mb-2">📦 Embarcadores</p>
+                                    <p class="text-sm opacity-90">${db.embarcadores.length} cadastrados</p>
+                                </button>
+                                <button onclick="app.tela='admin_fretes'; app.render()" class="bg-blue-600 text-white p-6 rounded-lg font-bold hover:bg-blue-700 text-left">
+                                    <p class="text-2xl mb-2">📋 Fretes</p>
+                                    <p class="text-sm opacity-90">${db.fretes.length} fretes</p>
+                                </button>
+                                <button onclick="app.tela='admin_lances'; app.render()" class="bg-indigo-600 text-white p-6 rounded-lg font-bold hover:bg-indigo-700 text-left">
+                                    <p class="text-2xl mb-2">💰 Lances</p>
+                                    <p class="text-sm opacity-90">${db.lances.length} lances</p>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            tela_admin_motoristas() {
+                return `
+                    <div class="min-h-screen bg-green-50 p-4">
+                        <div class="max-w-6xl mx-auto">
+                            <button onclick="app.tela='dash_admin'; app.render()" class="mb-6 text-green-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-6">🚗 Motoristas</h1>
+
+                            <div class="bg-white rounded-lg shadow-lg overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-green-600 text-white">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left">Nome</th>
+                                            <th class="px-6 py-3 text-left">Email</th>
+                                            <th class="px-6 py-3 text-left">CPF</th>
+                                            <th class="px-6 py-3 text-left">Placa</th>
+                                            <th class="px-6 py-3 text-center">Ação</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${db.motoristas.map(m => `
+                                            <tr class="border-b hover:bg-gray-50">
+                                                <td class="px-6 py-3">${m.nome}</td>
+                                                <td class="px-6 py-3">${m.email}</td>
+                                                <td class="px-6 py-3">${m.cpf}</td>
+                                                <td class="px-6 py-3">${m.placa}</td>
+                                                <td class="px-6 py-3 text-center">
+                                                    <button onclick="app.abrirEditarMotorista(${m.id})" class="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700">
+                                                        ✏️ Editar
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            tela_admin_embarcadores() {
+                return `
+                    <div class="min-h-screen bg-orange-50 p-4">
+                        <div class="max-w-6xl mx-auto">
+                            <button onclick="app.tela='dash_admin'; app.render()" class="mb-6 text-orange-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-6">📦 Embarcadores</h1>
+
+                            <div class="bg-white rounded-lg shadow-lg overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-orange-600 text-white">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left">Empresa</th>
+                                            <th class="px-6 py-3 text-left">CNPJ</th>
+                                            <th class="px-6 py-3 text-left">Responsável</th>
+                                            <th class="px-6 py-3 text-left">Email</th>
+                                            <th class="px-6 py-3 text-center">Ação</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${db.embarcadores.map(e => `
+                                            <tr class="border-b hover:bg-gray-50">
+                                                <td class="px-6 py-3">${e.nome}</td>
+                                                <td class="px-6 py-3">${e.cnpj}</td>
+                                                <td class="px-6 py-3">${e.responsavel_nome}</td>
+                                                <td class="px-6 py-3">${e.responsavel_email}</td>
+                                                <td class="px-6 py-3 text-center">
+                                                    <button onclick="app.abrirEditarEmbarcador(${e.id})" class="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700">
+                                                        ✏️ Editar
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            tela_admin_fretes() {
+                return `
+                    <div class="min-h-screen bg-blue-50 p-4">
+                        <div class="max-w-6xl mx-auto">
+                            <button onclick="app.tela='dash_admin'; app.render()" class="mb-6 text-blue-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-6">📋 Fretes</h1>
+
+                            <div class="bg-white rounded-lg shadow-lg overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-blue-600 text-white">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left">Título</th>
+                                            <th class="px-6 py-3 text-left">Embarcador</th>
+                                            <th class="px-6 py-3 text-left">Valor Ref</th>
+                                            <th class="px-6 py-3 text-left">Lances</th>
+                                            <th class="px-6 py-3 text-center">Ação</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${db.fretes.map(f => `
+                                            <tr class="border-b hover:bg-gray-50">
+                                                <td class="px-6 py-3">${f.titulo}</td>
+                                                <td class="px-6 py-3">${f.emb_nome}</td>
+                                                <td class="px-6 py-3">R$ ${parseFloat(f.valor_ref).toFixed(2)}</td>
+                                                <td class="px-6 py-3">${db.lances.filter(l => l.frete_id === f.id).length}</td>
+                                                <td class="px-6 py-3 text-center">
+                                                    <button onclick="app.abrirEditarFrete(${f.id})" class="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700">
+                                                        ✏️ Editar
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            tela_admin_lances() {
+                return `
+                    <div class="min-h-screen bg-indigo-50 p-4">
+                        <div class="max-w-6xl mx-auto">
+                            <button onclick="app.tela='dash_admin'; app.render()" class="mb-6 text-indigo-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-6">💰 Lances</h1>
+
+                            <div class="bg-white rounded-lg shadow-lg overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-indigo-600 text-white">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left">Frete</th>
+                                            <th class="px-6 py-3 text-left">Motorista</th>
+                                            <th class="px-6 py-3 text-left">Valor</th>
+                                            <th class="px-6 py-3 text-left">Data</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${db.lances.map(l => {
+                                            const frete = db.fretes.find(f => f.id === l.frete_id);
+                                            return `
+                                                <tr class="border-b hover:bg-gray-50">
+                                                    <td class="px-6 py-3">${frete ? frete.titulo : 'Frete removido'}</td>
+                                                    <td class="px-6 py-3">${l.mot_nome}</td>
+                                                    <td class="px-6 py-3">R$ ${l.valor.toFixed(2)}</td>
+                                                    <td class="px-6 py-3">${l.data}</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            abrirEditarMotorista(motor_id) {
+                const m = db.motoristas.find(x => x.id === motor_id);
+                if (!m) return;
+                this.motorista_editando = { ...m };
+                this.tela = 'admin_editar_motorista';
+                this.render();
+            },
+
+            tela_admin_editar_motorista() {
+                const m = this.motorista_editando;
+                return `
+                    <div class="min-h-screen bg-blue-50 p-4">
+                        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
+                            <button onclick="app.tela='admin_motoristas'; app.render()" class="mb-6 text-blue-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-6">✏️ Editar Motorista</h1>
+
+                            <div class="space-y-4">
+                                <input type="text" value="${m.nome}" onchange="app.motorista_editando.nome = this.value" placeholder="Nome Completo" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="email" value="${m.email}" onchange="app.motorista_editando.email = this.value" placeholder="Email" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="tel" value="${m.tel}" onchange="app.motorista_editando.tel = this.value" placeholder="Telefone" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="text" value="${m.end}" onchange="app.motorista_editando.end = this.value" placeholder="Endereço" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="text" value="${m.placa}" onchange="app.motorista_editando.placa = this.value" placeholder="Placa" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="text" value="${m.veiculo}" onchange="app.motorista_editando.veiculo = this.value" placeholder="Veículo" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="text" value="${m.modelo}" onchange="app.motorista_editando.modelo = this.value" placeholder="Modelo" class="w-full px-4 py-3 border rounded-lg">
+                                
+                                <button onclick="app.salvarEdicaoMotorista()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700">
+                                    ✅ Salvar Alterações
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            salvarEdicaoMotorista() {
+                const m = this.motorista_editando;
+                const idx = db.motoristas.findIndex(x => x.id === m.id);
+                if (idx >= 0) {
+                    db.motoristas[idx] = m;
+                    db.save();
+                    alert('✅ Motorista atualizado com sucesso!');
+                    this.tela = 'admin_motoristas';
+                    this.render();
+                }
+            },
+
+            abrirEditarEmbarcador(embarcador_id) {
+                const e = db.embarcadores.find(x => x.id === embarcador_id);
+                if (!e) return;
+                this.embarcador_editando = { ...e };
+                this.tela = 'admin_editar_embarcador';
+                this.render();
+            },
+
+            tela_admin_editar_embarcador() {
+                const e = this.embarcador_editando;
+                return `
+                    <div class="min-h-screen bg-orange-50 p-4">
+                        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
+                            <button onclick="app.tela='admin_embarcadores'; app.render()" class="mb-6 text-orange-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-6">✏️ Editar Embarcador</h1>
+
+                            <div class="space-y-4">
+                                <div class="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                                    <p class="font-semibold text-orange-900 mb-3">📦 Dados da Empresa</p>
+                                    <input type="text" value="${e.nome}" onchange="app.embarcador_editando.nome = this.value" placeholder="Nome Empresa" class="w-full px-4 py-3 border rounded-lg mb-3">
+                                    <input type="text" value="${e.cnpj}" onchange="app.embarcador_editando.cnpj = this.value" placeholder="CNPJ" class="w-full px-4 py-3 border rounded-lg mb-3">
+                                    <input type="text" value="${e.end}" onchange="app.embarcador_editando.end = this.value" placeholder="Endereço" class="w-full px-4 py-3 border rounded-lg mb-3">
+                                    <input type="tel" value="${e.tel}" onchange="app.embarcador_editando.tel = this.value" placeholder="Telefone" class="w-full px-4 py-3 border rounded-lg">
+                                </div>
+
+                                <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                                    <p class="font-semibold text-purple-900 mb-3">👤 Dados do Responsável</p>
+                                    <input type="text" value="${e.responsavel_nome}" onchange="app.embarcador_editando.responsavel_nome = this.value" placeholder="Nome Responsável" class="w-full px-4 py-3 border rounded-lg mb-3">
+                                    <input type="email" value="${e.responsavel_email}" onchange="app.embarcador_editando.responsavel_email = this.value" placeholder="Email" class="w-full px-4 py-3 border rounded-lg">
+                                </div>
+                                
+                                <button onclick="app.salvarEdicaoEmbarcador()" class="w-full bg-orange-600 text-white py-3 rounded-lg font-bold hover:bg-orange-700">
+                                    ✅ Salvar Alterações
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            salvarEdicaoEmbarcador() {
+                const e = this.embarcador_editando;
+                const idx = db.embarcadores.findIndex(x => x.id === e.id);
+                if (idx >= 0) {
+                    db.embarcadores[idx] = e;
+                    db.save();
+                    alert('✅ Embarcador atualizado com sucesso!');
+                    this.tela = 'admin_embarcadores';
+                    this.render();
+                }
+            },
+
+            abrirEditarFrete(frete_id) {
+                const f = db.fretes.find(x => x.id === frete_id);
+                if (!f) return;
+                this.frete_editando = { ...f };
+                this.tela = 'admin_editar_frete';
+                this.render();
+            },
+
+            tela_admin_editar_frete() {
+                const f = this.frete_editando;
+                return `
+                    <div class="min-h-screen bg-green-50 p-4">
+                        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
+                            <button onclick="app.tela='admin_fretes'; app.render()" class="mb-6 text-green-600 font-bold">← Voltar</button>
+                            <h1 class="text-3xl font-bold mb-6">✏️ Editar Frete</h1>
+
+                            <div class="space-y-4">
+                                <input type="text" value="${f.titulo}" onchange="app.frete_editando.titulo = this.value" placeholder="Título" class="w-full px-4 py-3 border rounded-lg">
+                                <select value="${f.tipo}" onchange="app.frete_editando.tipo = this.value" class="w-full px-4 py-3 border rounded-lg">
+                                    <option value="pontoaponto">🔵 Ponto a Ponto</option>
+                                    <option value="portaporta">🟠 Porta a Porta</option>
+                                </select>
+                                <input type="text" value="${f.veiculo}" onchange="app.frete_editando.veiculo = this.value" placeholder="Veículo" class="w-full px-4 py-3 border rounded-lg">
+                                <textarea placeholder="Descrição" rows="4" onchange="app.frete_editando.descricao = this.value" class="w-full px-4 py-3 border rounded-lg resize-none">${f.descricao}</textarea>
+                                <textarea placeholder="Informações" rows="3" onchange="app.frete_editando.info = this.value" class="w-full px-4 py-3 border rounded-lg resize-none">${f.info}</textarea>
+                                <input type="number" value="${f.valor_ref}" onchange="app.frete_editando.valor_ref = this.value" placeholder="Valor de Referência" step="0.01" class="w-full px-4 py-3 border rounded-lg">
+                                <input type="datetime-local" value="${f.data_limite}" onchange="app.frete_editando.data_limite = this.value" class="w-full px-4 py-3 border rounded-lg">
+                                
+                                <button onclick="app.salvarEdicaoFrete()" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">
+                                    ✅ Salvar Alterações
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            salvarEdicaoFrete() {
+                const f = this.frete_editando;
+                const idx = db.fretes.findIndex(x => x.id === f.id);
+                if (idx >= 0) {
+                    db.fretes[idx] = f;
+                    db.save();
+                    alert('✅ Frete atualizado com sucesso!');
+                    this.tela = 'admin_fretes';
+                    this.render();
+                }
+            },
+
+            logout() {
+                this.user = null;
+                this.tipo = null;
+                this.empresa_id = null;
+                this.tela = 'inicial';
+                this.render();
+            }
+        };
+
+        app.render();
+    </script>
+</body>
+</html>
